@@ -1,0 +1,301 @@
+#+OPTIONS: reveal_title_slide:nil
+#+OPTIONS: toc:nil
+#+OPTIONS: reveal_width:1500
+#+REVEAL_PLUGINS: (highlight)
+#+REVEAL_EXTRA_CSS: slide.css
+
+* The Common Monad
+
+The common monad in its natural environment :
+
+#+BEGIN_SRC haskell
+
+  main :: IO()
+  main = do 
+    putStrLn "Wots yer name?"
+    name <- getLine
+    putStrLn $ "Oi, " <> name
+
+#+END_SRC
+
+
+#+BEGIN_SRC haskell
+
+  sortofmultiply :: Maybe Int -> Maybe Int -> Maybe String
+  sortofmultiply a b = do
+    a' <- a
+    b' <- b
+    return $ show ( a' * b' )
+
+#+END_SRC
+
+
+* Solitary creatures
+
+The common Monad is a solitary creature that doesn't like to mix with others.
+
+#+BEGIN_SRC haskell
+
+  sortofmultiply :: Maybe Int -> Maybe Int -> Maybe String
+  sortofmultiply a b = do
+    a' <- a
+    b' <- b
+    
+    putStrLn $ show a'
+    putStrLn $ show b'
+
+    return $ show ( a' * b' )
+
+#+END_SRC
+
+This will fail.
+
+* Breeding
+
+But fortunately Monads are very easy to breed.
+
+#+BEGIN_SRC haskell
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+
+hoistMaybe :: Monad m => Maybe b -> MaybeT m b
+hoistMaybe = MaybeT . pure
+
+sortofmultiplyandprint :: Maybe Integer -> Maybe Integer -> MaybeT IO String
+sortofmultiplyandprint a b = do
+  a' <- hoistMaybe a
+  b' <- hoistMaybe b
+  lift $ putStrLn $ "Got a " <> show a'
+  lift $ putStrLn $ "Got a " <> show b'
+  return $ show ( a' * b' )
+#+END_SRC
+
+
+#+BEGIN_SRC haskell
+> runMaybeT $ sortofmultiplyandprint (Just 2) (Just 8)
+Got a 2
+Got a 8
+Just "16"
+#+END_SRC
+
+#+BEGIN_SRC haskell
+> runMaybeT $ sortofmultiplyandprint (Just 2) Nothing
+Nothing
+#+END_SRC
+
+* Hoist and lift
+
+  
+ *Hoist*
+
+  #+BEGIN_SRC haskell
+
+hoistMaybe :: Monad m => Maybe b -> MaybeT m b
+  
+  #+END_SRC
+   
+Pushes our monad up into the transformer. Each monad needs its own hoist written.
+
+*Lift*
+
+   #+BEGIN_SRC haskell
+
+   lift :: (Control.Monad.Trans.Class.MonadTrans t, Monad m) => m a -> t m a
+
+   #+END_SRC
+
+   Lift is a part of the MonadTrans typeclass.
+
+
+* Stacking em
+
+  We can stack up as many Transformers as we need.
+ 
+#+BEGIN_SRC haskell
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+import Control.Monad.Trans.Reader (ReaderT(..), runReaderT, ask)
+import Control.Monad.Trans.Writer (WriterT(..), runWriterT, tell)
+
+doSomethingAmazing :: Maybe String -> MaybeT (ReaderT String (WriterT String IO)) String
+doSomethingAmazing str = do
+  (lift . lift . lift) $ putStrLn "Lets do something amazing"
+  str' <- hoistMaybe str
+  anotherStr <- lift ask
+  (lift . lift) $ tell $ "We got some strings " ++ str' ++ " and " ++ anotherStr
+
+  return $ "These are our strings " ++ str' ++ ", " ++ anotherStr
+#+END_SRC  
+
+#+BEGIN_SRC haskell
+> runWriterT (runReaderT (runMaybeT $ doSomethingAmazing (Just "erk")) "plork")
+Lets do something amazing
+(Just "These are our strings erk, plork","We got some strings erk and plork")
+#+END_SRC
+
+#+BEGIN_SRC haskell
+> runWriterT (runReaderT (runMaybeT $ doSomethingAmazing Nothing) "plork")
+Lets do something amazing
+(Nothing,"")
+#+END_SRC
+
+* MTL
+
+All these *lifts* are annoying. Can we do something else?
+
+Yes! Use *mtl*.
+
+Mtl provides a number of typeclasses for the various main Monad Transformers functionality.
+
+#+BEGIN_SRC haskell
+-- See the @instance@ declaration below.
+class Monad m => MonadReader r m | m -> r where
+    {-# MINIMAL (ask | reader), local #-}
+    -- | Retrieves the monad environment.
+    ask   :: m r
+    ask = reader id
+
+    -- | Executes a computation in a modified environment.
+    local :: (r -> r) -- ^ The function to modify the environment.
+          -> m a      -- ^ @Reader@ to run in the modified environment.
+          -> m a
+
+    -- | Retrieves a function of the current environment.
+    reader :: (r -> a) -- ^ The selector function to apply to the environment.
+           -> m a
+    reader f = do
+      r <- ask
+      return (f r)
+#+END_SRC
+
+* Using MTL
+  
+*Using mtl*
+
+#+BEGIN_SRC haskell
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+
+module MtlStuff where
+
+import Control.Monad.IO.Class (MonadIO(..), liftIO)
+import Control.Monad.Reader (ReaderT(..), MonadReader(..))
+import Control.Monad.Writer (WriterT(..), MonadWriter(..))
+
+newtype MyMonadM a = MyMonadM { runMyMonad :: ReaderT String (WriterT String IO) a }
+  deriving (Functor, Applicative, Monad, MonadIO, MonadReader String, MonadWriter String)
+
+doSomethingAmazing :: ( MonadIO m
+                      , MonadReader String m
+                      , MonadWriter String m) => m String
+doSomethingAmazing = do
+  liftIO $ putStrLn "Lets do something really amazing"
+  someStr <- ask
+  tell $ "We got a string " ++ someStr
+
+  return $ "This is our string " ++ someStr
+#+END_SRC
+
+#+BEGIN_SRC haskell
+> runWriterT (runReaderT (runMyMonad doSomethingAmazing) "Onkleflip")
+Lets do something really amazing
+("This is our string Onkleflip","We got a string Onkleflip")
+#+END_SRC
+
+* The three layer Haskell cake
+  
+  *The three layer Haskell cake*
+
+  https://www.parsonsmatt.org/2018/03/22/three_layer_haskell_cake.html
+  
+  How to design your applications.
+
+** Layer 1
+
+   The Monad that yer app will run in.
+   
+#+BEGIN_SRC haskell
+newtype AppT m a 
+    = AppT 
+    { unAppT :: ReaderT YourStuff m a 
+    } deriving (Functor, Applicative, Monad, etc)
+#+END_SRC
+
+** Layer 2
+
+   Create typeclasses for all your external effects.
+
+#+BEGIN_SRC haskell
+
+class MonadTime m where 
+    getCurrentTime :: m UTCTime
+
+#+END_SRC
+
+
+Then implement them for your Monad (and for any mocking classes for testing).
+
+#+BEGIN_SRC haskell
+
+instance MonadTime MyMonadM where
+  getCurrentTime = liftIO Clock.getCurrentTime
+
+#+END_SRC
+
+** Layer 3
+
+Write yerself some pure code.
+
+#+BEGIN_SRC haskell
+
+doSomethingAmazing :: ( MonadIO m
+                      , MonadTime m
+                      , MonadReader String m
+                      , MonadWriter String m) => m String
+doSomethingAmazing = do
+  liftIO $ putStrLn "Lets do something really amazing"
+  someStr <- ask
+  tell $ "We got a string " ++ someStr
+
+  time <- getCurrentTime
+
+  return $ "This is our string " ++ someStr ++ " at " ++ (show time)
+
+#+END_SRC
+
+
+#+BEGIN_SRC haskell
+> runWriterT (runReaderT (runMyMonad doSomethingAmazing) "Onkleflip")
+Lets do something really amazing
+("This is our string Onkleflip at 2019-03-03 15:21:31.307008971 UTC","We got a string Onkleflip")
+#+END_SRC
+
+
+* Running your monad in other monads
+
+Sometimes you aren't running your monad directly. Eg. Servant apps are run in the Servant Handler Monad.
+So how do you use the functions written in your Apps Monad?
+
+Hopefully the framework provides a Hoist function.
+
+For example, Servant provides `hoistServer` and `hoistServerWithContext` functions.
+
+#+BEGIN_SRC haskell
+
+newtype AppM a = AppM { runAppM :: ReaderT (Pool Connection) Servant.Handler a }
+   deriving (Functor, Applicative, Monad, MonadError Server.ServantErr)
+
+app :: Pool Connection -> Application
+app pool =
+  serveWithContext routes genAuthServerContext
+  $ hoistServerWithContext routes (Proxy :: Proxy (AuthHandler Request Auth.Passport ': '[]) ) nt server
+  where
+    nt :: AppM x -> Servant.Handler x
+    nt m = runReaderT (runAppM m) pool
+    
+server :: ServerT Api AppM
+server = home :<|> apiHandler :<|> assets
+
+#+END_SRC
+
+

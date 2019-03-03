@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title></title>
+<meta name="author" content="(Plertrood)"/>
+<style type="text/css">
+.underline { text-decoration: underline; }
+</style>
+<link rel="stylesheet" href="http://cdn.jsdelivr.net/reveal.js/3.0.0/css/reveal.css"/>
+
+<link rel="stylesheet" href="http://cdn.jsdelivr.net/reveal.js/3.0.0/css/theme/moon.css" id="theme"/>
+
+<link rel="stylesheet" href="slide.css"/>
+<link rel="stylesheet" href="http://cdn.jsdelivr.net/reveal.js/3.0.0/lib/css/zenburn.css"/>
+<!-- If the query includes 'print-pdf', include the PDF print sheet -->
+<script>
+    if( window.location.search.match( /print-pdf/gi ) ) {
+        var link = document.createElement( 'link' );
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = 'http://cdn.jsdelivr.net/reveal.js/3.0.0/css/print/pdf.css';
+        document.getElementsByTagName( 'head' )[0].appendChild( link );
+    }
+</script>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<section>
+<section id="slide-orgc6c4f61">
+<h2 id="orgc6c4f61"><span class="section-number-2">1</span> The Common Monad</h2>
+<p>
+The common monad in its natural environment :
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+main :: IO()
+main = do 
+  putStrLn "Wots yer name?"
+  name <- getLine
+  putStrLn $ "Oi, " <> name
+
+</code></pre>
+</div>
+
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+sortofmultiply :: Maybe Int -> Maybe Int -> Maybe String
+sortofmultiply a b = do
+  a' <- a
+  b' <- b
+  return $ show ( a' * b' )
+
+</code></pre>
+</div>
+
+
+</section>
+</section>
+<section>
+<section id="slide-orgb596393">
+<h2 id="orgb596393"><span class="section-number-2">2</span> Solitary creatures</h2>
+<p>
+The common Monad is a solitary creature that doesn't like to mix with others.
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+sortofmultiply :: Maybe Int -> Maybe Int -> Maybe String
+sortofmultiply a b = do
+  a' <- a
+  b' <- b
+
+  putStrLn $ show a'
+  putStrLn $ show b'
+
+  return $ show ( a' * b' )
+
+</code></pre>
+</div>
+
+<p>
+This will fail.
+</p>
+
+</section>
+</section>
+<section>
+<section id="slide-org902c514">
+<h2 id="org902c514"><span class="section-number-2">3</span> Breeding</h2>
+<p>
+But fortunately Monads are very easy to breed.
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+
+hoistMaybe :: Monad m => Maybe b -> MaybeT m b
+hoistMaybe = MaybeT . pure
+
+sortofmultiplyandprint :: Maybe Integer -> Maybe Integer -> MaybeT IO String
+sortofmultiplyandprint a b = do
+  a' <- hoistMaybe a
+  b' <- hoistMaybe b
+  lift $ putStrLn $ "Got a " <> show a'
+  lift $ putStrLn $ "Got a " <> show b'
+  return $ show ( a' * b' )
+</code></pre>
+</div>
+
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >> runMaybeT $ sortofmultiplyandprint (Just 2) (Just 8)
+Got a 2
+Got a 8
+Just "16"
+</code></pre>
+</div>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >> runMaybeT $ sortofmultiplyandprint (Just 2) Nothing
+Nothing
+</code></pre>
+</div>
+
+</section>
+</section>
+<section>
+<section id="slide-org08be1f4">
+<h2 id="org08be1f4"><span class="section-number-2">4</span> Hoist and lift</h2>
+<p>
+<b>Hoist</b>
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+hoistMaybe :: Monad m => Maybe b -> MaybeT m b
+
+</code></pre>
+</div>
+
+<p>
+Pushes our monad up into the transformer. Each monad needs its own hoist written.
+</p>
+
+<p>
+<b>Lift</b>
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+lift :: (Control.Monad.Trans.Class.MonadTrans t, Monad m) => m a -> t m a
+
+</code></pre>
+</div>
+
+<p>
+Lift is a part of the MonadTrans typeclass.
+</p>
+
+
+</section>
+</section>
+<section>
+<section id="slide-orgbe2b35e">
+<h2 id="orgbe2b35e"><span class="section-number-2">5</span> Stacking em</h2>
+<p>
+We can stack up as many Transformers as we need.
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+import Control.Monad.Trans.Reader (ReaderT(..), runReaderT, ask)
+import Control.Monad.Trans.Writer (WriterT(..), runWriterT, tell)
+
+doSomethingAmazing :: Maybe String -> MaybeT (ReaderT String (WriterT String IO)) String
+doSomethingAmazing str = do
+  (lift . lift . lift) $ putStrLn "Lets do something amazing"
+  str' <- hoistMaybe str
+  anotherStr <- lift ask
+  (lift . lift) $ tell $ "We got some strings " ++ str' ++ " and " ++ anotherStr
+
+  return $ "These are our strings " ++ str' ++ ", " ++ anotherStr
+</code></pre>
+</div>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >> runWriterT (runReaderT (runMaybeT $ doSomethingAmazing (Just "erk")) "plork")
+Lets do something amazing
+(Just "These are our strings erk, plork","We got some strings erk and plork")
+</code></pre>
+</div>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >> runWriterT (runReaderT (runMaybeT $ doSomethingAmazing Nothing) "plork")
+Lets do something amazing
+(Nothing,"")
+</code></pre>
+</div>
+
+</section>
+</section>
+<section>
+<section id="slide-orgdf3f7b0">
+<h2 id="orgdf3f7b0"><span class="section-number-2">6</span> MTL</h2>
+<p>
+All these <b>lifts</b> are annoying. Can we do something else?
+</p>
+
+<p>
+Yes! Use <b>mtl</b>.
+</p>
+
+<p>
+Mtl provides a number of typeclasses for the various main Monad Transformers functionality.
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >-- See the @instance@ declaration below.
+class Monad m => MonadReader r m | m -> r where
+    {-# MINIMAL (ask | reader), local #-}
+    -- | Retrieves the monad environment.
+    ask   :: m r
+    ask = reader id
+
+    -- | Executes a computation in a modified environment.
+    local :: (r -> r) -- ^ The function to modify the environment.
+          -> m a      -- ^ @Reader@ to run in the modified environment.
+          -> m a
+
+    -- | Retrieves a function of the current environment.
+    reader :: (r -> a) -- ^ The selector function to apply to the environment.
+           -> m a
+    reader f = do
+      r <- ask
+      return (f r)
+</code></pre>
+</div>
+
+</section>
+</section>
+<section>
+<section id="slide-orgfc1d4ca">
+<h2 id="orgfc1d4ca"><span class="section-number-2">7</span> Using MTL</h2>
+<p>
+<b>Using mtl</b>
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+
+module MtlStuff where
+
+import Control.Monad.IO.Class (MonadIO(..), liftIO)
+import Control.Monad.Reader (ReaderT(..), MonadReader(..))
+import Control.Monad.Writer (WriterT(..), MonadWriter(..))
+
+newtype MyMonadM a = MyMonadM { runMyMonad :: ReaderT String (WriterT String IO) a }
+  deriving (Functor, Applicative, Monad, MonadIO, MonadReader String, MonadWriter String)
+
+doSomethingAmazing :: ( MonadIO m
+                      , MonadReader String m
+                      , MonadWriter String m) => m String
+doSomethingAmazing = do
+  liftIO $ putStrLn "Lets do something really amazing"
+  someStr <- ask
+  tell $ "We got a string " ++ someStr
+
+  return $ "This is our string " ++ someStr
+</code></pre>
+</div>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >> runWriterT (runReaderT (runMyMonad doSomethingAmazing) "Onkleflip")
+Lets do something really amazing
+("This is our string Onkleflip","We got a string Onkleflip")
+</code></pre>
+</div>
+
+</section>
+</section>
+<section>
+<section id="slide-org7eb2142">
+<h2 id="org7eb2142"><span class="section-number-2">8</span> The three layer Haskell cake</h2>
+<p>
+<b>The three layer Haskell cake</b>
+</p>
+
+<p>
+<a href="https://www.parsonsmatt.org/2018/03/22/three_layer_haskell_cake.html">https://www.parsonsmatt.org/2018/03/22/three_layer_haskell_cake.html</a>
+</p>
+
+<p>
+How to design your applications.
+</p>
+
+</section>
+<section id="slide-orgda4fba2">
+<h3 id="orgda4fba2"><span class="section-number-3">8.1</span> Layer 1</h3>
+<p>
+The Monad that yer app will run in.
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >newtype AppT m a 
+    = AppT 
+    { unAppT :: ReaderT YourStuff m a 
+    } deriving (Functor, Applicative, Monad, etc)
+</code></pre>
+</div>
+
+</section>
+<section id="slide-org94b5ce2">
+<h3 id="org94b5ce2"><span class="section-number-3">8.2</span> Layer 2</h3>
+<p>
+Create typeclasses for all your external effects.
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+class MonadTime m where 
+    getCurrentTime :: m UTCTime
+
+</code></pre>
+</div>
+
+
+<p>
+Then implement them for your Monad (and for any mocking classes for testing).
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+instance MonadTime MyMonadM where
+  getCurrentTime = liftIO Clock.getCurrentTime
+
+</code></pre>
+</div>
+
+</section>
+<section id="slide-orgb1074b6">
+<h3 id="orgb1074b6"><span class="section-number-3">8.3</span> Layer 3</h3>
+<p>
+Write yerself some pure code.
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+doSomethingAmazing :: ( MonadIO m
+                      , MonadTime m
+                      , MonadReader String m
+                      , MonadWriter String m) => m String
+doSomethingAmazing = do
+  liftIO $ putStrLn "Lets do something really amazing"
+  someStr <- ask
+  tell $ "We got a string " ++ someStr
+
+  time <- getCurrentTime
+
+  return $ "This is our string " ++ someStr ++ " at " ++ (show time)
+
+</code></pre>
+</div>
+
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >> runWriterT (runReaderT (runMyMonad doSomethingAmazing) "Onkleflip")
+Lets do something really amazing
+("This is our string Onkleflip at 2019-03-03 15:21:31.307008971 UTC","We got a string Onkleflip")
+</code></pre>
+</div>
+
+
+</section>
+</section>
+<section>
+<section id="slide-orgb8de089">
+<h2 id="orgb8de089"><span class="section-number-2">9</span> Running your monad in other monads</h2>
+<p>
+Sometimes you aren't running your monad directly. Eg. Servant apps are run in the Servant Handler Monad.
+So how do you use the functions written in your Apps Monad?
+</p>
+
+<p>
+Hopefully the framework provides a Hoist function.
+</p>
+
+<p>
+For example, Servant provides `hoistServer` and `hoistServerWithContext` functions.
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="haskell" >
+newtype AppM a = AppM { runAppM :: ReaderT (Pool Connection) Servant.Handler a }
+   deriving (Functor, Applicative, Monad, MonadError Server.ServantErr)
+
+app :: Pool Connection -> Application
+app pool =
+  serveWithContext routes genAuthServerContext
+  $ hoistServerWithContext routes (Proxy :: Proxy (AuthHandler Request Auth.Passport ': '[]) ) nt server
+  where
+    nt :: AppM x -> Servant.Handler x
+    nt m = runReaderT (runAppM m) pool
+
+server :: ServerT Api AppM
+server = home :<|> apiHandler :<|> assets
+
+</code></pre>
+</div>
+</section>
+</section>
+</div>
+</div>
+<script src="http://cdn.jsdelivr.net/reveal.js/3.0.0/lib/js/head.min.js"></script>
+<script src="http://cdn.jsdelivr.net/reveal.js/3.0.0/js/reveal.js"></script>
+
+<script>
+// Full list of configuration options available here:
+// https://github.com/hakimel/reveal.js#configuration
+Reveal.initialize({
+
+controls: true,
+progress: true,
+history: false,
+center: true,
+slideNumber: 'c',
+rollingLinks: false,
+keyboard: true,
+overview: true,
+width: 1500,
+
+theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+transitionSpeed: 'default',
+multiplex: {
+    secret: '', // null if client
+    id: '', // id, obtained from socket.io server
+    url: '' // Location of socket.io server
+},
+
+// Optional libraries used to extend on reveal.js
+dependencies: [
+ { src: 'http://cdn.jsdelivr.net/reveal.js/3.0.0/plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }]
+});
+</script>
+</body>
+</html>
