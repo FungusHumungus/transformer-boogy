@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <title></title>
-<meta name="author" content="(Plertrood)"/>
+<meta name="author" content="(Stephen Wakely)"/>
 <style type="text/css">
 .underline { text-decoration: underline; }
 </style>
@@ -29,8 +29,8 @@
 <div class="slides">
 
 <section>
-<section id="slide-orgc6c4f61">
-<h2 id="orgc6c4f61"><span class="section-number-2">1</span> The Common Monad</h2>
+<section id="slide-org461d6cb">
+<h2 id="org461d6cb"><span class="section-number-2">1</span> The Common Monad</h2>
 <p>
 The common monad in its natural environment :
 </p>
@@ -64,8 +64,8 @@ sortofmultiply a b = do
 </section>
 </section>
 <section>
-<section id="slide-orgb596393">
-<h2 id="orgb596393"><span class="section-number-2">2</span> Solitary creatures</h2>
+<section id="slide-org6b6cca2">
+<h2 id="org6b6cca2"><span class="section-number-2">2</span> Solitary creatures</h2>
 <p>
 The common Monad is a solitary creature that doesn't like to mix with others.
 </p>
@@ -93,8 +93,8 @@ This will fail.
 </section>
 </section>
 <section>
-<section id="slide-org902c514">
-<h2 id="org902c514"><span class="section-number-2">3</span> Breeding</h2>
+<section id="slide-orgec01cda">
+<h2 id="orgec01cda"><span class="section-number-2">3</span> Breeding</h2>
 <p>
 But fortunately Monads are very easy to breed.
 </p>
@@ -137,8 +137,8 @@ Nothing
 </section>
 </section>
 <section>
-<section id="slide-org08be1f4">
-<h2 id="org08be1f4"><span class="section-number-2">4</span> Hoist and lift</h2>
+<section id="slide-org1454359">
+<h2 id="org1454359"><span class="section-number-2">4</span> Hoist and lift</h2>
 <p>
 <b>Hoist</b>
 </p>
@@ -175,8 +175,8 @@ Lift is a part of the MonadTrans typeclass.
 </section>
 </section>
 <section>
-<section id="slide-orgbe2b35e">
-<h2 id="orgbe2b35e"><span class="section-number-2">5</span> Stacking em</h2>
+<section id="slide-org49faf22">
+<h2 id="org49faf22"><span class="section-number-2">5</span> Stacking em</h2>
 <p>
 We can stack up as many Transformers as we need.
 </p>
@@ -218,8 +218,8 @@ Lets do something amazing
 </section>
 </section>
 <section>
-<section id="slide-orgdf3f7b0">
-<h2 id="orgdf3f7b0"><span class="section-number-2">6</span> MTL</h2>
+<section id="slide-org6c52bb0">
+<h2 id="org6c52bb0"><span class="section-number-2">6</span> MTL</h2>
 <p>
 All these <b>lifts</b> are annoying. Can we do something else?
 </p>
@@ -258,8 +258,8 @@ class Monad m => MonadReader r m | m -> r where
 </section>
 </section>
 <section>
-<section id="slide-orgfc1d4ca">
-<h2 id="orgfc1d4ca"><span class="section-number-2">7</span> Using MTL</h2>
+<section id="slide-org149d10a">
+<h2 id="org149d10a"><span class="section-number-2">7</span> Using MTL</h2>
 <p>
 <b>Using mtl</b>
 </p>
@@ -301,8 +301,8 @@ Lets do something really amazing
 </section>
 </section>
 <section>
-<section id="slide-org7eb2142">
-<h2 id="org7eb2142"><span class="section-number-2">8</span> The three layer Haskell cake</h2>
+<section id="slide-org612dad3">
+<h2 id="org612dad3"><span class="section-number-2">8</span> The three layer Haskell cake</h2>
 <p>
 <b>The three layer Haskell cake</b>
 </p>
@@ -316,8 +316,8 @@ How to design your applications.
 </p>
 
 </section>
-<section id="slide-orgda4fba2">
-<h3 id="orgda4fba2"><span class="section-number-3">8.1</span> Layer 1</h3>
+<section id="slide-orgfe21adc">
+<h3 id="orgfe21adc"><span class="section-number-3">8.1</span> Layer 1</h3>
 <p>
 The Monad that yer app will run in.
 </p>
@@ -332,8 +332,8 @@ The Monad that yer app will run in.
 </div>
 
 </section>
-<section id="slide-org94b5ce2">
-<h3 id="org94b5ce2"><span class="section-number-3">8.2</span> Layer 2</h3>
+<section id="slide-orgc93896f">
+<h3 id="orgc93896f"><span class="section-number-3">8.2</span> Layer 2</h3>
 <p>
 Create typeclasses for all your external effects.
 </p>
@@ -343,6 +343,9 @@ Create typeclasses for all your external effects.
 <pre><code class="haskell" >
 class MonadTime m where 
     getCurrentTime :: m UTCTime
+
+class MonadDisplay m where
+    output :: String -> m ()
 
 </code></pre>
 </div>
@@ -358,12 +361,15 @@ Then implement them for your Monad (and for any mocking classes for testing).
 instance MonadTime MyMonadM where
   getCurrentTime = liftIO Clock.getCurrentTime
 
+instance MonadDisplay MyMonadM where
+  display = liftIO . putStrLn
+
 </code></pre>
 </div>
 
 </section>
-<section id="slide-orgb1074b6">
-<h3 id="orgb1074b6"><span class="section-number-3">8.3</span> Layer 3</h3>
+<section id="slide-orgd9b5048">
+<h3 id="orgd9b5048"><span class="section-number-3">8.3</span> Layer 3</h3>
 <p>
 Write yerself some pure code.
 </p>
@@ -371,12 +377,12 @@ Write yerself some pure code.
 <div class="org-src-container">
 
 <pre><code class="haskell" >
-doSomethingAmazing :: ( MonadIO m
+doSomethingAmazing :: ( MonadDisplay m
                       , MonadTime m
                       , MonadReader String m
                       , MonadWriter String m) => m String
 doSomethingAmazing = do
-  liftIO $ putStrLn "Lets do something really amazing"
+  display "Lets do something really amazing"
   someStr <- ask
   tell $ "We got a string " ++ someStr
 
@@ -400,8 +406,8 @@ Lets do something really amazing
 </section>
 </section>
 <section>
-<section id="slide-orgb8de089">
-<h2 id="orgb8de089"><span class="section-number-2">9</span> Running your monad in other monads</h2>
+<section id="slide-org6938ccf">
+<h2 id="org6938ccf"><span class="section-number-2">9</span> Running your monad in other monads</h2>
 <p>
 Sometimes you aren't running your monad directly. Eg. Servant apps are run in the Servant Handler Monad.
 So how do you use the functions written in your Apps Monad?

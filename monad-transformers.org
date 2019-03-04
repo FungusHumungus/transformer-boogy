@@ -229,6 +229,9 @@ newtype AppT m a
 
 class MonadTime m where 
     getCurrentTime :: m UTCTime
+    
+class MonadDisplay m where
+    output :: String -> m ()
 
 #+END_SRC
 
@@ -239,6 +242,9 @@ Then implement them for your Monad (and for any mocking classes for testing).
 
 instance MonadTime MyMonadM where
   getCurrentTime = liftIO Clock.getCurrentTime
+ 
+instance MonadDisplay MyMonadM where
+  display = liftIO . putStrLn
 
 #+END_SRC
 
@@ -248,12 +254,12 @@ Write yerself some pure code.
 
 #+BEGIN_SRC haskell
 
-doSomethingAmazing :: ( MonadIO m
+doSomethingAmazing :: ( MonadDisplay m
                       , MonadTime m
                       , MonadReader String m
                       , MonadWriter String m) => m String
 doSomethingAmazing = do
-  liftIO $ putStrLn "Lets do something really amazing"
+  display "Lets do something really amazing"
   someStr <- ask
   tell $ "We got a string " ++ someStr
 

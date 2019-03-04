@@ -14,12 +14,12 @@ import qualified Data.Time.Clock as Clock
 newtype MyMonadM a = MyMonadM { runMyMonad :: ReaderT String (WriterT String IO) a }
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader String, MonadWriter String )
 
-doSomethingAmazing :: ( MonadIO m
+doSomethingAmazing :: ( MonadDisplay m
                       , MonadTime m
                       , MonadReader String m
                       , MonadWriter String m) => m String
 doSomethingAmazing = do
-  liftIO $ putStrLn "Lets do something really amazing"
+  display "Lets do something really amazing"
   someStr <- ask
   tell $ "We got a string " ++ someStr
 
@@ -33,3 +33,11 @@ class MonadTime m where
 
 instance MonadTime MyMonadM where
   getCurrentTime = liftIO Clock.getCurrentTime
+
+class MonadDisplay m where
+    display :: String -> m ()
+
+instance MonadDisplay MyMonadM where
+  display = liftIO . putStrLn
+
+
